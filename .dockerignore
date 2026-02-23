@@ -1,0 +1,8 @@
+.git
+.claude
+bin/
+tasks/
+docs/
+frontend/node_modules
+frontend/dist
+*.md
