@@ -1,0 +1,24 @@
+# Dependencies
+frontend/node_modules
+
+# Build artifacts
+frontend/dist
+frontend/tsconfig.app.tsbuildinfo
+
+# Claude Code
+.claude/settings.local.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.production
