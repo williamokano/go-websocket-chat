@@ -28,7 +28,7 @@ services:
       timeout: 5s
       retries: 5
 
-  backend-1:
+  backend:
     image: ${DOCKERHUB_USERNAME:-williamokano}/websocket-chat-backend:latest
     restart: unless-stopped
     environment:
@@ -51,40 +51,15 @@ services:
       timeout: 5s
       retries: 5
 
-  backend-2:
-    image: ${DOCKERHUB_USERNAME:-williamokano}/websocket-chat-backend:latest
-    restart: unless-stopped
-    environment:
-      PORT: "8080"
-      DATABASE_URL: "postgres://chat:${POSTGRES_PASSWORD:-chat}@postgres:5432/chat?sslmode=disable"
-      REDIS_URL: "redis://valkey:6379"
-      JWT_SECRET: "${JWT_SECRET}"
-      RUN_MIGRATE: "false"
-      WEBAUTHN_RP_DISPLAY_NAME: "Chat App"
-      WEBAUTHN_RP_ID: "chat.okano.dev"
-      WEBAUTHN_RP_ORIGINS: "https://chat.okano.dev"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
-      backend-1:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   frontend:
     image: ${DOCKERHUB_USERNAME:-williamokano}/websocket-chat-frontend:latest
     restart: unless-stopped
     ports:
       - "5173:80"
+    environment:
+      BACKEND_HOST: "backend:8080"
     depends_on:
-      backend-1:
-        condition: service_healthy
-      backend-2:
+      backend:
         condition: service_healthy
 
 volumes:
