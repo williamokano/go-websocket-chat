@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passkey Registration</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #111827;
+            color: #F9FAFB;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: #1F2937;
+            border: 1px solid #7C3AED;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #7C3AED;
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
+        .subtitle {
+            color: #6B7280;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+        .username {
+            color: #06B6D4;
+            font-weight: bold;
+        }
+        .status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+        }
+        .status.loading {
+            background: #1E293B;
+            color: #EAB308;
+        }
+        .status.success {
+            background: #064E3B;
+            color: #22C55E;
+        }
+        .status.error {
+            background: #7F1D1D;
+            color: #EF4444;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #6B7280;
+            border-top-color: #7C3AED;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Passkey Registration</h1>
+        <p class="subtitle">Register a passkey for <span class="username">{{.Username}}</span>.</p>
+        <div id="status" class="status loading">
+            <span class="spinner"></span> Starting registration...
+        </div>
+    </div>
+
+    <script>
+        const serverURL = "{{.ServerURL}}";
+        const callbackURL = "{{.CallbackURL}}";
+        const username = "{{.Username}}";
+        const statusEl = document.getElementById("status");
+
+        function setStatus(cls, msg) {
+            statusEl.className = "status " + cls;
+            statusEl.innerHTML = msg;
+        }
+
+        function base64urlToBuffer(base64url) {
+            let s = base64url.replace(/-/g, "+").replace(/_/g, "/");
+            while (s.length % 4 !== 0) s += "=";
+            const raw = atob(s);
+            const buf = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+            return buf.buffer;
+        }
+
+        function bufferToBase64url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = "";
+            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+            return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        }
+
+        async function run() {
+            try {
+                // Step 1: Begin registration
+                setStatus("loading", '<span class="spinner"></span> Requesting registration options...');
+                const beginResp = await fetch(serverURL + "/api/auth/webauthn/register/begin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: username }),
+                });
+                if (!beginResp.ok) {
+                    const err = await beginResp.json().catch(() => ({}));
+                    throw new Error(err.error || "Failed to start registration (status " + beginResp.status + ")");
+                }
+                const beginData = await beginResp.json();
+                const sessionID = beginData.session_id;
+                const options = beginData.options;
+
+                // Step 2: Convert base64url fields to ArrayBuffer
+                options.publicKey.challenge = base64urlToBuffer(options.publicKey.challenge);
+                options.publicKey.user.id = base64urlToBuffer(options.publicKey.user.id);
+                if (options.publicKey.excludeCredentials) {
+                    options.publicKey.excludeCredentials = options.publicKey.excludeCredentials.map(function(cred) {
+                        cred.id = base64urlToBuffer(cred.id);
+                        return cred;
+                    });
+                }
+
+                // Step 3: Call navigator.credentials.create()
+                setStatus("loading", '<span class="spinner"></span> Waiting for passkey...');
+                const credential = await navigator.credentials.create(options);
+
+                // Step 4: Convert response to base64url
+                const attestationData = {
+                    id: credential.id,
+                    rawId: bufferToBase64url(credential.rawId),
+                    type: credential.type,
+                    response: {
+                        attestationObject: bufferToBase64url(credential.response.attestationObject),
+                        clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
+                    },
+                };
+
+                // Step 5: Finish registration
+                setStatus("loading", '<span class="spinner"></span> Verifying...');
+                const finishResp = await fetch(serverURL + "/api/auth/webauthn/register/finish?session_id=" + encodeURIComponent(sessionID), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(attestationData),
+                });
+                if (!finishResp.ok) {
+                    const err = await finishResp.json().catch(() => ({}));
+                    throw new Error(err.error || "Registration verification failed (status " + finishResp.status + ")");
+                }
+                const result = await finishResp.json();
+
+                // Step 6: Send token back to TUI via callback
+                await fetch(callbackURL + "/callback", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: result.token, user: result.user }),
+                });
+
+                setStatus("success", "Registration successful! You can close this tab.");
+            } catch (err) {
+                setStatus("error", "Error: " + err.message);
+                try {
+                    await fetch(callbackURL + "/callback", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ error: err.message }),
+                    });
+                } catch (_) {}
+            }
+        }
+
+        run();
+    </script>
+</body>
+</html>

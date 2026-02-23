@@ -10,6 +10,9 @@ import (
 // LogoutMsg is sent when the user requests to log out from the chat screen.
 type LogoutMsg struct{}
 
+// RegisterPasskeyMsg is sent when the user wants to register a passkey.
+type RegisterPasskeyMsg struct{}
+
 // ChatScreen is the main chat view.
 type ChatScreen struct {
 	header    components.Header
@@ -38,7 +41,7 @@ func NewChatScreen(username, userID string, ws *client.WSClient) ChatScreen {
 	sb.SetUsername(username)
 	sb.SetStatus(components.StatusConnecting)
 
-	menu := components.NewMenu("Menu", []string{"Resume", "Logout"})
+	menu := components.NewMenu("Menu", []string{"Resume", "Register Passkey", "Logout"})
 
 	return ChatScreen{
 		header:    header,
@@ -66,6 +69,11 @@ func (c *ChatScreen) SetSize(w, h int) {
 	c.messages.SetSize(w, msgHeight)
 }
 
+// SetStatusMessage sets a transient message in the status bar.
+func (c *ChatScreen) SetStatusMessage(msg string) {
+	c.statusBar.SetMessage(msg)
+}
+
 // SetConnected updates the connection status indicator.
 func (c *ChatScreen) SetConnected(connected bool) {
 	if connected {
@@ -89,7 +97,10 @@ func (c *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 			return c.menu.Update(msg)
 		case components.MenuSelectMsg:
 			c.showMenu = false
-			if msg.Index == 1 { // Logout
+			switch msg.Index {
+			case 1: // Register Passkey
+				return func() tea.Msg { return RegisterPasskeyMsg{} }
+			case 2: // Logout
 				return func() tea.Msg { return LogoutMsg{} }
 			}
 			// Index 0 = Resume, just close menu

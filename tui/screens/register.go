@@ -24,11 +24,12 @@ type registerResultMsg struct {
 
 // RegisterScreen handles user registration.
 type RegisterScreen struct {
-	dialog    components.Dialog
-	serverURL string
-	width     int
-	height    int
-	loading   bool
+	dialog       components.Dialog
+	serverURL    string
+	width        int
+	height       int
+	loading      bool
+	webauthnFlow *client.WebAuthnBrowserFlow
 }
 
 // NewRegisterScreen creates a new register screen.
@@ -36,10 +37,11 @@ func NewRegisterScreen(serverURL string) RegisterScreen {
 	d := components.NewDialog("Register", []string{"Username", "Password", "Confirm Password"})
 	d.SetMask(1, '*')
 	d.SetMask(2, '*')
-	d.SetHint("Ctrl+R: switch to Login")
+	d.SetHint("Ctrl+R: Login | Ctrl+P: Passkey")
 	return RegisterScreen{
-		dialog:    d,
-		serverURL: serverURL,
+		dialog:       d,
+		serverURL:    serverURL,
+		webauthnFlow: client.NewWebAuthnBrowserFlow(serverURL),
 	}
 }
 
@@ -61,6 +63,35 @@ func (r *RegisterScreen) Update(msg tea.Msg) tea.Cmd {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlR {
 			return func() tea.Msg { return SwitchToLoginMsg{} }
+		}
+		if msg.String() == "ctrl+p" {
+			if r.loading {
+				return nil
+			}
+			vals := r.dialog.Values()
+			if len(vals) < 1 || vals[0] == "" {
+				r.dialog.SetError("Enter a username first, then press Ctrl+P")
+				return nil
+			}
+			r.loading = true
+			r.dialog.ClearError()
+			return r.webauthnFlow.Register(vals[0])
+		}
+	case client.WebAuthnRegisterResultMsg:
+		r.loading = false
+		if msg.Err != nil {
+			r.dialog.SetError(msg.Err.Error())
+			return nil
+		}
+		token := msg.Token
+		userID := msg.UserID
+		username := msg.Username
+		return func() tea.Msg {
+			return RegisterSuccessMsg{
+				Token:    token,
+				UserID:   userID,
+				Username: username,
+			}
 		}
 	case components.DialogSubmitMsg:
 		if r.loading {

@@ -54,6 +54,11 @@ func (s *Service) Login(ctx context.Context, username, password string) (*AuthRe
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
+	// Passwordless accounts cannot use password login
+	if u.Password == "" {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
 	if !CheckPassword(password, u.Password) {
 		return nil, fmt.Errorf("invalid credentials")
 	}

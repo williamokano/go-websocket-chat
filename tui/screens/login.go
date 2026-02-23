@@ -24,21 +24,23 @@ type loginResultMsg struct {
 
 // LoginScreen handles user login.
 type LoginScreen struct {
-	dialog    components.Dialog
-	serverURL string
-	width     int
-	height    int
-	loading   bool
+	dialog       components.Dialog
+	serverURL    string
+	width        int
+	height       int
+	loading      bool
+	webauthnFlow *client.WebAuthnBrowserFlow
 }
 
 // NewLoginScreen creates a new login screen.
 func NewLoginScreen(serverURL string) LoginScreen {
 	d := components.NewDialog("Login", []string{"Username", "Password"})
 	d.SetMask(1, '*')
-	d.SetHint("Ctrl+R: switch to Register")
+	d.SetHint("Ctrl+R: Register | Ctrl+P: Passkey")
 	return LoginScreen{
-		dialog:    d,
-		serverURL: serverURL,
+		dialog:       d,
+		serverURL:    serverURL,
+		webauthnFlow: client.NewWebAuthnBrowserFlow(serverURL),
 	}
 }
 
@@ -60,6 +62,30 @@ func (l *LoginScreen) Update(msg tea.Msg) tea.Cmd {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlR {
 			return func() tea.Msg { return SwitchToRegisterMsg{} }
+		}
+		if msg.String() == "ctrl+p" {
+			if l.loading {
+				return nil
+			}
+			l.loading = true
+			l.dialog.ClearError()
+			return l.webauthnFlow.Login()
+		}
+	case client.WebAuthnLoginResultMsg:
+		l.loading = false
+		if msg.Err != nil {
+			l.dialog.SetError(msg.Err.Error())
+			return nil
+		}
+		token := msg.Token
+		userID := msg.UserID
+		username := msg.Username
+		return func() tea.Msg {
+			return LoginSuccessMsg{
+				Token:    token,
+				UserID:   userID,
+				Username: username,
+			}
 		}
 	case components.DialogSubmitMsg:
 		if l.loading {

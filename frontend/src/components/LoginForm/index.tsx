@@ -7,11 +7,12 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
-  const { login } = useAuth();
+  const { login, loginWithPasskey, supportsWebAuthn } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,6 +24,18 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    setError("");
+    setPasskeyLoading(true);
+    try {
+      await loginWithPasskey();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Passkey login failed");
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -80,6 +93,26 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
+        {supportsWebAuthn && (
+          <>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-gray-50 px-2 text-gray-500">or</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handlePasskeyLogin}
+              disabled={passkeyLoading}
+              className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              {passkeyLoading ? "Authenticating..." : "Sign in with Passkey"}
+            </button>
+          </>
+        )}
         <p className="mt-4 text-center text-sm text-gray-600">
           Don't have an account?{" "}
           <button

@@ -57,3 +57,10 @@ export interface ErrorMessage {
 }
 
 export type ConnectionStatus = "connected" | "connecting" | "disconnected";
+
+export interface PasskeyInfo {
+  id: string;
+  friendly_name: string;
+  created_at: string;
+  last_used_at?: string;
+}

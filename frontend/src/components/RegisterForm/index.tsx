@@ -7,12 +7,13 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
-  const { register } = useAuth();
+  const { register, registerWithPasskey, supportsWebAuthn } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,6 +35,24 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasskeyRegister = async () => {
+    setError("");
+    if (!username.trim()) {
+      setError("Username is required for passkey registration");
+      return;
+    }
+    setPasskeyLoading(true);
+    try {
+      await registerWithPasskey(username);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Passkey registration failed"
+      );
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -108,6 +127,28 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             {loading ? "Creating account..." : "Register"}
           </button>
         </form>
+        {supportsWebAuthn && (
+          <>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-gray-50 px-2 text-gray-500">or</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handlePasskeyRegister}
+              disabled={passkeyLoading}
+              className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              {passkeyLoading
+                ? "Setting up passkey..."
+                : "Register with Passkey"}
+            </button>
+          </>
+        )}
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{" "}
           <button

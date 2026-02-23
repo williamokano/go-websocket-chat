@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS webauthn_credentials;
+
+ALTER TABLE users ALTER COLUMN password SET NOT NULL;
+ALTER TABLE users ALTER COLUMN password DROP DEFAULT;

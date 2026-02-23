@@ -14,6 +14,10 @@ type Config struct {
 	JWTSecret      string   `env:"JWT_SECRET" envDefault:"dev-secret-change-in-production"`
 	RunMigrate     bool     `env:"RUN_MIGRATE" envDefault:"true"`
 	AllowedOrigins []string `env:"ALLOWED_ORIGINS" envDefault:"http://localhost:5173,http://localhost:3000" envSeparator:","`
+
+	WebAuthnRPDisplayName string   `env:"WEBAUTHN_RP_DISPLAY_NAME" envDefault:"Chat App"`
+	WebAuthnRPID          string   `env:"WEBAUTHN_RP_ID" envDefault:"localhost"`
+	WebAuthnRPOrigins     []string `env:"WEBAUTHN_RP_ORIGINS" envDefault:"http://localhost:5173,http://localhost:3000" envSeparator:","`
 }
 
 func Load() (*Config, error) {

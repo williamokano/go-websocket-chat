@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/williamokano/example-websocket-chat/tui/client"
 	"github.com/williamokano/example-websocket-chat/tui/screens"
@@ -37,8 +39,9 @@ type App struct {
 	userID   string
 	username string
 
-	wsClient *client.WSClient
-	program  *tea.Program
+	wsClient     *client.WSClient
+	program      *tea.Program
+	webauthnFlow *client.WebAuthnBrowserFlow
 }
 
 // NewApp creates a new App with the given server URL.
@@ -48,6 +51,7 @@ func NewApp(serverURL string) *App {
 		currentScreen:  screenLogin,
 		loginScreen:    screens.NewLoginScreen(serverURL),
 		registerScreen: screens.NewRegisterScreen(serverURL),
+		webauthnFlow:   client.NewWebAuthnBrowserFlow(serverURL),
 	}
 }
 
@@ -155,6 +159,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.currentScreen = screenLogin
 		a.loginScreen = screens.NewLoginScreen(a.serverURL)
 		a.loginScreen.SetSize(a.width, a.height)
+		return a, nil
+
+	case screens.RegisterPasskeyMsg:
+		friendlyName := fmt.Sprintf("%s-tui", a.username)
+		return a, a.webauthnFlow.AddCredential(a.token, friendlyName)
+
+	case client.WebAuthnAddCredentialResultMsg:
+		if msg.Err != nil {
+			// Show the error via the chat screen status bar; the user can see
+			// it and retry through the menu.
+			a.chatScreen.SetStatusMessage(fmt.Sprintf("Passkey error: %s", msg.Err.Error()))
+		} else {
+			a.chatScreen.SetStatusMessage("Passkey registered successfully")
+		}
 		return a, nil
 	}
 

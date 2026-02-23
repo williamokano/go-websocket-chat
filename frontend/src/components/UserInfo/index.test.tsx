@@ -3,6 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { UserInfo } from "./index";
 
+vi.mock("../../hooks/useAuth", () => ({
+  useAuth: () => ({
+    token: "mock-token",
+  }),
+}));
+
 describe("UserInfo", () => {
   const user = { id: "u1", username: "alice" };
 

@@ -22,6 +22,7 @@ type StatusBar struct {
 	width    int
 	status   ConnectionStatus
 	username string
+	message  string
 }
 
 // NewStatusBar creates a new status bar.
@@ -46,6 +47,16 @@ func (s *StatusBar) SetUsername(u string) {
 	s.username = u
 }
 
+// SetMessage sets a transient status message displayed alongside the status.
+func (s *StatusBar) SetMessage(msg string) {
+	s.message = msg
+}
+
+// ClearMessage clears the transient status message.
+func (s *StatusBar) ClearMessage() {
+	s.message = ""
+}
+
 // View renders the status bar.
 func (s StatusBar) View() string {
 	var indicator string
@@ -61,6 +72,9 @@ func (s StatusBar) View() string {
 	left := indicator
 	if s.username != "" {
 		left = fmt.Sprintf("%s  %s", indicator, lipgloss.NewStyle().Foreground(styles.White).Bold(true).Render(s.username))
+	}
+	if s.message != "" {
+		left = fmt.Sprintf("%s  %s", left, lipgloss.NewStyle().Foreground(styles.Accent).Italic(true).Render(s.message))
 	}
 
 	help := styles.StatusHelpStyle.Render("esc menu | pgup/pgdn scroll | ctrl+c quit")
