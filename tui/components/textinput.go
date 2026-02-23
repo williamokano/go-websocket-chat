@@ -131,6 +131,10 @@ func (t *TextInput) Update(msg tea.Msg) tea.Cmd {
 		t.updateOffset()
 	case tea.KeyCtrlK:
 		t.value = t.value[:t.cursor]
+	case tea.KeySpace:
+		t.value = append(t.value[:t.cursor], append([]rune{' '}, t.value[t.cursor:]...)...)
+		t.cursor++
+		t.updateOffset()
 	case tea.KeyRunes:
 		for _, r := range keyMsg.Runes {
 			t.value = append(t.value[:t.cursor], append([]rune{r}, t.value[t.cursor:]...)...)
